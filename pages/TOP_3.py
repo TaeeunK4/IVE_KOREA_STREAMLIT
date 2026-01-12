@@ -158,9 +158,17 @@ def get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, new_width):
     except Exception as e:
         raise Exception(f"S3 이미지 처리 실패 (Key: {OBJECT_KEY}): {e}")
     
-@st.cache_data
+@st.cache_data(max_entries=1) # 메모리에 데이터프레임을 딱 하나만 유지하여 OOM 방지
 def load_full_data():
-    """S3에서 전체 Parquet 데이터를 한 번만 로드하여 캐싱"""
+    """S3에서 필요한 칼럼만 선택적으로 로드하여 메모리 최적화"""
+    # 사용자가 정의한 9개 칼럼 + 필터링용 클러스터 칼럼
+    target_columns = [
+        'INDUSTRY', 'OS_TYPE', 'REJOIN_TYPE', # limit_type 대응
+        '1000_w_efficiency', 'cvr', 'abs', 
+        'shape', 'mda', 'start_time',
+        'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
+    ]
+    
     try:
         s3 = boto3.client(
             's3',
@@ -168,11 +176,18 @@ def load_full_data():
             aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
         )
         response = s3.get_object(Bucket=BUCKET_NAME, Key=FILE_KEY)
-        # Parquet 파일을 메모리 버퍼로 읽어 pandas로 변환
-        return pd.read_parquet(BytesIO(response['Body'].read()))
+        
+        # 전체를 읽지 않고 지정한 columns만 로드
+        df = pd.read_parquet(
+            BytesIO(response['Body'].read()), 
+            columns=target_columns,
+            engine='pyarrow'
+        )
+        return df
+        
     except Exception as e:
         st.error(f"데이터 로드 실패: {e}")
-        return None    
+        return None  
     
 image_1 = get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, 32)    
 mapping_df = load_full_data()
@@ -222,7 +237,7 @@ cluster_num = int(cluster_num)
 ## ============================================================================
 # 5. 모델 데이터 로드
 ## ============================================================================
-@st.cache_data
+@st.cache_data(max_entries=1)
 def load_df(cluster_n):
     file_key = f"ive_ml/Clustering/IVE_ANALYTICS_CLUSTER_{cluster_n}.parquet"
     s3_url = f"s3://{BUCKET_NAME}/{file_key}"
