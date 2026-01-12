@@ -243,7 +243,7 @@ def load_df(cluster_n):
         st.error(f"S3에서 클러스터 {cluster_n} 파일을 불러오는 중 오류 발생: {e}")
         return None
 
-@st.cache_resource
+@st.cache_resource(max_entries=1)
 def load_model(cluster_n):
     file_key = f"ive_ml/Models/Cluster_{cluster_n}_cat_re_models.pkl"
 
