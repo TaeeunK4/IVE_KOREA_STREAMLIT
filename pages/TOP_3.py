@@ -165,7 +165,7 @@ def load_full_data():
     target_columns = [
         'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
         '1000_W_EFFICIENCY', 'CVR', 'ABS', 
-        'SHAPE', 'MDA', 'START_TIME',
+        'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
         'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
     ]
     
@@ -242,7 +242,7 @@ def load_df(cluster_n):
     target_columns = [
         'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
         '1000_W_EFFICIENCY', 'CVR', 'ABS', 
-        'SHAPE', 'MDA', 'START_TIME',
+        'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
         'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
     ]
     file_key = f"ive_ml/Clustering/IVE_ANALYTICS_CLUSTER_{cluster_n}.parquet"
