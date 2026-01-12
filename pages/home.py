@@ -116,21 +116,10 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # =============================================================================
 # 3.1 경로 저장 및 데이터 캐싱
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
-FILE_KEY = "ive_ml/Clustering/IVE_ANALYTICS_CLUSTER.parquet"
+FILE_KEY = "ive_ml/Clustering/IVE_CLUSTER_MAPPING_MANUAL.parquet"
 
-
-
-@st.cache_data(max_entries=1) # 메모리에 데이터프레임을 딱 하나만 유지하여 OOM 방지
-def load_full_data():
-    """S3에서 필요한 칼럼만 선택적으로 로드하여 메모리 최적화"""
-    # 사용자가 정의한 9개 칼럼 + 필터링용 클러스터 칼럼
-    target_columns = [
-        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
-        '1000_W_EFFICIENCY', 'CVR', 'ABS', 
-        'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
-        'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
-    ]
-    
+@st.cache_data(max_entries=1)
+def load_mapping_data():
     try:
         s3 = boto3.client(
             's3',
@@ -142,7 +131,6 @@ def load_full_data():
         # 전체를 읽지 않고 지정한 columns만 로드
         df = pd.read_parquet(
             BytesIO(response['Body'].read()), 
-            columns=target_columns,
             engine='pyarrow'
         )
         return df
@@ -151,7 +139,7 @@ def load_full_data():
         st.error(f"데이터 로드 실패: {e}")
         return None
 
-mapping_df = load_full_data()
+mapping_df = load_mapping_data()
 
 # 3.2 session_state 및 기본값 설정
 industry = st.session_state.get('selected_industry', "금융/보험")
