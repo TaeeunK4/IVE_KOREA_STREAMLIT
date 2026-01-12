@@ -160,9 +160,9 @@ def load_full_data():
     """S3에서 필요한 칼럼만 선택적으로 로드하여 메모리 최적화"""
     # 사용자가 정의한 9개 칼럼 + 필터링용 클러스터 칼럼
     target_columns = [
-        'INDUSTRY', 'OS_TYPE', 'REJOIN_TYPE', # limit_type 대응
-        '1000_w_efficiency', 'cvr', 'abs', 
-        'shape', 'mda', 'start_time',
+        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
+        '1000_W_EFFICIENCY', 'CVR', 'ABS', 
+        'SHAPE', 'MDA', 'START_TIME',
         'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
     ]
     
