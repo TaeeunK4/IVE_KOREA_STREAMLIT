@@ -116,44 +116,9 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # =============================================================================
 # 3.1 경로 저장 및 데이터 캐싱
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
-OBJECT_KEY = "image/error_image.jpg"
 FILE_KEY = "ive_ml/Clustering/IVE_ANALYTICS_CLUSTER.parquet"
 
-@st.cache_data
-def get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, new_width):
-    try:
-        # 1. boto3 S3 클라이언트 생성
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
-            aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"],
-            region_name=st.secrets.get("AWS_DEFAULT_REGION", "ap-southeast-2")
-        )
 
-        # 2. S3에서 객체(이미지) 가져오기
-        response = s3.get_object(Bucket=BUCKET_NAME, Key=OBJECT_KEY)
-        image_content = response['Body'].read()
-
-        # 3. 이미지 열기 및 처리
-        img = Image.open(BytesIO(image_content))
-        img = img.convert("RGBA") # 투명 배경 지원
-
-        # 4. 이미지 비율 유지하며 리사이징 계산
-        w_percent = (new_width / float(img.size[0]))
-        h_size = int((float(img.size[1]) * float(w_percent)))
-        
-        # 고품질 리사이징
-        resized_img = img.resize((new_width, h_size), Image.Resampling.LANCZOS)
-        
-        # 5. 메모리 버퍼에 PNG 형식으로 저장
-        buffer = BytesIO()
-        resized_img.save(buffer, format="PNG")
-        
-        # 6. Base64로 인코딩해서 문자열로 반환
-        return base64.b64encode(buffer.getvalue()).decode()
-
-    except Exception as e:
-        raise Exception(f"S3 이미지 처리 실패 (Key: {OBJECT_KEY}): {e}")
 
 @st.cache_data(max_entries=1) # 메모리에 데이터프레임을 딱 하나만 유지하여 OOM 방지
 def load_full_data():
@@ -186,7 +151,6 @@ def load_full_data():
         st.error(f"데이터 로드 실패: {e}")
         return None
 
-image_1 = get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, 32)
 mapping_df = load_full_data()
 
 # 3.2 session_state 및 기본값 설정
@@ -222,8 +186,6 @@ else:
     # 3등분 컬럼으로 가운데 정렬
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image(f"data:image/png;base64,{image_1}", width=500)
-        # HTML로 가운데 정렬 + 줄바꿈
         st.markdown("""
             <div style="color: gray; text-align: center; margin-top: 10px;">
                 찾으시는 조합의 데이터가 부족합니다.<br>
