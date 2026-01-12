@@ -1,0 +1,12 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+altair
+requests
+Pillow
+boto3
+s3fs
+pyarrow
