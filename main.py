@@ -9,7 +9,7 @@ import boto3
 # 1. 파일 지정
 # =========================================================
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
-
+OBJECT_KEY = "image/cursor_image.png"
 # =========================================================
 # 2. 이미지 처리 함수 (PNG 리사이징 및 Base64 변환)
 # =========================================================
@@ -50,7 +50,7 @@ def get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, new_width):
         raise Exception(f"S3 이미지 처리 실패 (Key: {OBJECT_KEY}): {e}")
 
 try:
-    cursor_b64 = get_s3_resized_png_b64(BUCKET_NAME, "image/찐막.jpg", 32)
+    cursor_b64 = get_s3_resized_png_b64(BUCKET_NAME, OBJECT_KEY, 32)
 
     if cursor_b64:
         hotspot_x = 0

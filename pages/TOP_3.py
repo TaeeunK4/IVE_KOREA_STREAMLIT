@@ -114,7 +114,7 @@ st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 # =============================================================================
 # 3.1 경로 저장 및 데이터 캐싱
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
-OBJECT_KEY = "image/아열받아.jpg"
+OBJECT_KEY = "image/error_image.jpg"
 FILE_KEY = "ive_ml/Clustering/IVE_ANALYTICS_CLUSTER.parquet"
 
 # 3.2 session_state 및 기본값 설정
