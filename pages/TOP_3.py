@@ -239,24 +239,33 @@ cluster_num = int(cluster_num)
 ## ============================================================================
 @st.cache_data(max_entries=1)
 def load_df(cluster_n):
+    target_columns = [
+        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
+        '1000_W_EFFICIENCY', 'CVR', 'ABS', 
+        'SHAPE', 'MDA', 'START_TIME',
+        'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
+    ]
     file_key = f"ive_ml/Clustering/IVE_ANALYTICS_CLUSTER_{cluster_n}.parquet"
-    s3_url = f"s3://{BUCKET_NAME}/{file_key}"
 
     try:
-        # 2. pandas의 read_parquet 기능을 사용하여 S3에서 직접 로드
-        # storage_options를 통해 secrets.toml에 저장된 인증 정보를 전달합니다.
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
+            aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
+        )
+        response = s3.get_object(Bucket=BUCKET_NAME, Key=file_key)
+        
+        # 전체를 읽지 않고 지정한 columns만 로드
         df = pd.read_parquet(
-            s3_url,
-            storage_options={
-                "key": st.secrets["AWS_ACCESS_KEY_ID"],
-                "secret": st.secrets["AWS_SECRET_ACCESS_KEY"]
-            }
+            BytesIO(response['Body'].read()), 
+            columns=target_columns,
+            engine='pyarrow'
         )
         return df
         
     except Exception as e:
-        st.error(f"S3에서 클러스터 {cluster_n} 파일을 불러오는 중 오류 발생: {e}")
-        return None
+        st.error(f"데이터 로드 실패: {e}")
+        return None  
 
 @st.cache_resource(max_entries=1)
 def load_model(cluster_n):
