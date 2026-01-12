@@ -5,7 +5,7 @@
 import streamlit as st
 import pandas as pd
 import pickle
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import MinMaxScaler
 import altair as alt
 from io import BytesIO
 import boto3
@@ -277,11 +277,11 @@ def prediction_TOP_3(df, _model):
     result_df['Data_Count'] = result_df['Data_Count'].fillna(0)
     result_df = result_df[result_df['Data_Count'] >= 10].copy()
 
-    scaler = RobustScaler()
+    scaler = MinMaxScaler(feature_range=(0, 100))
     scaled_vals = scaler.fit_transform(result_df[['Pred_CVR', 'Pred_EFF', 'Pred_ABS']])
     result_df['CVR_scaled'] = scaled_vals[:, 0]
     result_df['EFF_scaled'] = scaled_vals[:, 1]
-    result_df['ABS_scaled'] = scaled_vals[:, 1]
+    result_df['ABS_scaled'] = scaled_vals[:, 2]
 
     result_df['score'] = result_df['CVR_scaled'] + result_df['EFF_scaled'] + result_df['ABS_scaled']
 
