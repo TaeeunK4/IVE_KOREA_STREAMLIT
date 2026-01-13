@@ -145,6 +145,7 @@ mapping_df = load_mapping_data()
 industry = st.session_state.get('selected_industry', "금융/보험")
 os_input = st.session_state.get('selected_os', "WEB")
 limited = st.session_state.get('selected_limited', "UNLIMITED")
+highlight = st.session_state.get('selected_highlight', "이익")
 
 
 # =============================================================================
@@ -158,6 +159,7 @@ mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
 industry_clean = industry.strip()
 os_input_clean = os_input.strip().lower()
 limited_clean = limited.strip()
+highlight_clean = highlight.strip()
 
 # 4.2 사용자 필터링
 result_row = mapping_df[
@@ -227,7 +229,7 @@ col1, col2, col3 = st.columns(3)
 if not filtered_df.empty:
     eff_value = filtered_df['1000_W_EFFICIENCY'].mean()
     cvr_value = filtered_df['CVR'].mean()*100
-    display_eff = f"{int(eff_value):,}원"
+    display_eff = f"{int(eff_value):,}"
     display_cvr = f"{cvr_value:.2f}%"
     time_turn_value = filtered_df['TIME_TURN'].mean()
 else:
@@ -259,7 +261,7 @@ with col2:
 with col3:
     st.markdown(f"""
     <div class="kpi-card">
-        <div class="kpi-title">CPA</div>
+        <div class="kpi-title">1000_W_EFFICIENCY</div>
         <div class="kpi-value">{display_eff}</div>
         <div class="kpi-sub">전환당 평균(천 원)</div>
     </div>

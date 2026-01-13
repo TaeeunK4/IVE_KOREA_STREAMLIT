@@ -120,6 +120,7 @@ FILE_KEY = "ive_ml/Clustering/IVE_CLUSTER_MAPPING_MANUAL.parquet"
 industry = st.session_state.get('selected_industry', "금융/보험")
 os_input = st.session_state.get('selected_os', "WEB")
 limited = st.session_state.get('selected_limited', "UNLIMITED")
+highlight = st.session_state.get('selected_highlight', "이익")
     
 @st.cache_data(max_entries=1) # 메모리에 데이터프레임을 딱 하나만 유지하여 OOM 방지
 def load_mapping_data():
@@ -153,6 +154,7 @@ mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
 industry_clean = industry.strip()
 os_input_clean = os_input.strip().lower()
 limited_clean = limited.strip()
+highlight_clean = highlight.strip()
 
 
 ## ============================================================================
@@ -255,25 +257,24 @@ def prediction_TOP_3(df, _model):
     unique_conditions = df[['SHAPE', 'MDA', 'START_TIME']].drop_duplicates()
     result_df = unique_conditions.copy()
     result_df['MDA'] = result_df['MDA'].astype(str)
+    
+    targets = {
+            'CVR': 'Pred_CVR',
+            '1000_W_EFFICIENCY': 'Pred_EFF',
+            'ABS': 'Pred_ABS'
+        }
 
-    pred_cvr = _model['CVR'].predict(unique_conditions)
-    result_df['Pred_CVR'] = pred_cvr
-
-    pred_eff = _model['1000_W_EFFICIENCY'].predict(unique_conditions)
-    result_df['Pred_EFF'] = pred_eff
-
-    pred_abs = _model['ABS'].predict(unique_conditions)
-    result_df['Pred_ABS'] = pred_abs
-
+    for model_key_name, col_name in targets.items():
+        target_model = _model[model_key_name]
+            
+        if hasattr(target_model, 'predict'):
+            result_df[col_name] = target_model.predict(unique_conditions)
+        else:
+            result_df[col_name] = float(target_model)
+    
     count_df = df.groupby(['SHAPE', 'MDA', 'START_TIME']).size().reset_index(name='Data_Count')
     count_df['MDA'] = count_df['MDA'].astype(str)
-    result_df = pd.merge(
-        result_df,
-        count_df,
-        on=['SHAPE', 'MDA', 'START_TIME'],
-        how='left'
-    )
-
+    result_df = pd.merge(result_df, count_df, on=['SHAPE', 'MDA', 'START_TIME'], how='left')
     result_df['Data_Count'] = result_df['Data_Count'].fillna(0)
     result_df = result_df[result_df['Data_Count'] >= 10].copy()
 
@@ -282,8 +283,12 @@ def prediction_TOP_3(df, _model):
     result_df['CVR_scaled'] = scaled_vals[:, 0]
     result_df['EFF_scaled'] = scaled_vals[:, 1]
     result_df['ABS_scaled'] = scaled_vals[:, 2]
-
-    result_df['score'] = result_df['CVR_scaled'] + result_df['EFF_scaled'] + result_df['ABS_scaled']
+    if highlight_clean == "이익":
+        result_df['score'] = result_df['CVR_scaled']*0.5 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.25
+    elif highlight_clean == "비용":
+        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.5 + result_df['ABS_scaled']*0.25
+    elif highlight_clean == "안정성":
+        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.5
 
     top_10 = result_df.sort_values('score', ascending=False).head(10).copy()
     top = result_df.sort_values('score', ascending=False).head(3).copy()

@@ -70,6 +70,9 @@ if 'selected_os' not in st.session_state:
 if 'selected_limited' not in st.session_state:
     st.session_state['selected_limited'] = "UNLIMITED"
 
+if 'selected_highlight' not in st.session_state:
+    st.session_state['selected_highlight'] = "이익"
+
 
 # =============================================================================
 # 6. 페이지 정의 (st.Page)
@@ -126,6 +129,15 @@ with st.sidebar:
         ["UNLIMITED", "LIMITED"], 
         key='selected_limited'
     )
+
+with st.sidebar:
+    st.header("🧐 무엇을 중점적으로?")
+
+    st.selectbox(
+        "HIGHLIGHT", 
+        ["이익", "비용", "안정성"], 
+        key='selected_highlight'
+    )    
     
 
 # =============================================================================
