@@ -9,12 +9,9 @@ from sklearn.preprocessing import MinMaxScaler
 import altair as alt
 from io import BytesIO
 import boto3
-import base64
-from PIL import Image
-
 
 # =============================================================================
-# 1. CSS 설정
+# CSS 설정
 # =============================================================================
 
 CARD_STYLE = """
@@ -95,9 +92,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 ## ============================================================================
-# 2. 제목 설정
+# 페이지 제목 설정
 ## ============================================================================
 
 st.markdown(
@@ -108,21 +104,15 @@ st.markdown(
 )
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
+# =============================================================================
+# 매핑 데이터 로드
+# =============================================================================
 
-# =============================================================================
-# 3. 데이터 로드
-# =============================================================================
-# 3.1 경로 저장 및 데이터 캐싱
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
 FILE_KEY = "ive_ml/Clustering/IVE_CLUSTER_MAPPING_MANUAL.parquet"
 
-# 3.2 session_state 및 기본값 설정
-industry = st.session_state.get('selected_industry', "금융/보험")
-os_input = st.session_state.get('selected_os', "WEB")
-limited = st.session_state.get('selected_limited', "UNLIMITED")
-highlight = st.session_state.get('selected_highlight', "이익")
-    
-@st.cache_data(max_entries=1) # 메모리에 데이터프레임을 딱 하나만 유지하여 OOM 방지
+# 매핑 데이터 (INDUSTRY/OS_TYPE/LIMIT_TYPE -> CLUSTER)
+@st.cache_data(max_entries=1)
 def load_mapping_data():
     try:
         s3 = boto3.client(
@@ -145,8 +135,15 @@ def load_mapping_data():
     
 mapping_df = load_mapping_data()
 
+# =============================================================================
+# session_state 및 기본값 설정
+# =============================================================================
 
-# 3.4 매핑 데이터 전처리
+industry = st.session_state.get('selected_industry', "금융/보험")
+os_input = st.session_state.get('selected_os', "WEB")
+limited = st.session_state.get('selected_limited', "UNLIMITED")
+highlight = st.session_state.get('selected_highlight', "이익")
+
 mapping_df['INDUSTRY'] = mapping_df['INDUSTRY'].astype(str).str.strip()
 mapping_df['OS_TYPE'] = mapping_df['OS_TYPE'].astype(str).str.strip().str.lower()
 mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
@@ -154,20 +151,19 @@ mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
 industry_clean = industry.strip()
 os_input_clean = os_input.strip().lower()
 limited_clean = limited.strip()
-highlight_clean = highlight.strip()
 
+# =============================================================================
+# 데이터 필터링
+# =============================================================================
 
-## ============================================================================
-# 4. 필터링
-## ============================================================================
-# 4.1 지정값 필터링
+# 사용자 선택사항 필터링
 result_row = mapping_df[
         (mapping_df['INDUSTRY'] == industry_clean) &
         (mapping_df['OS_TYPE'] == os_input_clean) &
         (mapping_df['LIMIT_TYPE'] == limited_clean)
     ]
 
-# 4.1 클러스터 조합 찾기 및 session_state 저장
+# 클러스터 추출
 if not result_row.empty:
     cluster_num = int(result_row['GMM_CLUSTER'].values[0]) 
     st.session_state['cluster_num'] = cluster_num
@@ -185,17 +181,18 @@ else:
 
 cluster_num = int(cluster_num)
 
+## ============================================================================
+# 데이터 및 모델 로드
+## ============================================================================
 
-## ============================================================================
-# 5. 모델 데이터 로드
-## ============================================================================
+# 데이터 로드
 @st.cache_data(max_entries=1)
 def load_df(cluster_n):
     target_columns = [
-        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
+        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE',
         '1000_W_EFFICIENCY', 'CVR', 'ABS', 
         'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
-        'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
+        'GMM_CLUSTER'
     ]
     file_key = f"ive_ml/Clustering/IVE_ANALYTICS_CLUSTER_{cluster_n}.parquet"
 
@@ -206,8 +203,6 @@ def load_df(cluster_n):
             aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
         )
         response = s3.get_object(Bucket=BUCKET_NAME, Key=file_key)
-        
-        # 전체를 읽지 않고 지정한 columns만 로드
         df = pd.read_parquet(
             BytesIO(response['Body'].read()), 
             columns=target_columns,
@@ -219,12 +214,12 @@ def load_df(cluster_n):
         st.error(f"데이터 로드 실패: {e}")
         return None  
 
+# 모델 로드
 @st.cache_resource(max_entries=1)
 def load_model(cluster_n):
     file_key = f"ive_ml/Models/Cluster_{cluster_n}_cat_re_models.pkl"
 
     try:
-        # 2. boto3 클라이언트 생성
         s3 = boto3.client(
             's3',
             aws_access_key_id=st.secrets["AWS_ACCESS_KEY_ID"],
@@ -232,11 +227,9 @@ def load_model(cluster_n):
             region_name=st.secrets.get("AWS_DEFAULT_REGION", "ap-southeast-2")
         )
 
-        # 3. S3에서 객체 가져오기
         response = s3.get_object(Bucket=BUCKET_NAME, Key=file_key)
         model_content = response['Body'].read()
 
-        # 4. pickle로 모델 로드
         model = pickle.loads(model_content)
         return model
 
@@ -244,14 +237,13 @@ def load_model(cluster_n):
         st.error(f"S3에서 클러스터 {cluster_n} 모델을 불러오는 중 오류 발생: {e}")
         return None
     
-
-# 5.4 함수 호출 및 저장
 df = load_df(cluster_num)
 model = load_model(cluster_num)
 
 # =============================================================================
-# 6. 예측 함수 및 TOP 리스트
+# 예측 함수 및 TOP 리스트
 # =============================================================================
+# # x : SHAPE, MDA, START_TIME -> CVR, 1000_W_EFFICIENCY, ABS 예측
 @st.cache_resource
 def prediction_TOP_3(df, _model, highlight_clean):
     unique_conditions = df[['SHAPE', 'MDA', 'START_TIME']].drop_duplicates()
@@ -283,6 +275,8 @@ def prediction_TOP_3(df, _model, highlight_clean):
     result_df['CVR_scaled'] = scaled_vals[:, 0]
     result_df['EFF_scaled'] = scaled_vals[:, 1]
     result_df['ABS_scaled'] = scaled_vals[:, 2]
+
+    # 중점 사항에 따른 가중치 수정
     if highlight_clean == "이익":
         result_df['score'] = result_df['CVR_scaled']*0.5 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.25
     elif highlight_clean == "비용":
@@ -300,15 +294,15 @@ def prediction_TOP_3(df, _model, highlight_clean):
     
     return top1, top2, top3, top, top_10
 
-top1, top2, top3, top, top_10 = prediction_TOP_3(df, model, highlight_clean)
+top1, top2, top3, top, top_10 = prediction_TOP_3(df, model)
 
  
 # =============================================================================
-# 7. TOP_3 출력
+# TOP_3 출력
 # =============================================================================
 col1, col2, col3 = st.columns(3)
 
-# 7.1 TOP_1
+# TOP_1
 with col1:
     st.markdown(f"""
     <div class="kpi-card">
@@ -330,7 +324,7 @@ with col1:
     """, unsafe_allow_html=True
     )
 
-# 7.2 TOP_2
+# TOP_2
 with col2:
     st.markdown(f"""
     <div class="kpi-card">
@@ -352,7 +346,7 @@ with col2:
     """, unsafe_allow_html=True
     )
 
-# 7.3 TOP_3
+# TOP_3
 with col3:
     st.markdown(f"""
     <div class="kpi-card">
@@ -376,26 +370,25 @@ with col3:
 
 st.divider()
 
+# =============================================================================
+# 예산안 편성 추천
+# =============================================================================
 
-# =============================================================================
-# 8. 예산안
-# =============================================================================
 st.subheader("광고 예산안 배분")
 
-
-# 8.1 도넛 차트
+# 도넛 차트
 top_chart = top.copy()
 rank_order = ['TOP 1', 'TOP 2', 'TOP 3']
 color_range = ['#FF6C6C', '#4CA8FF', '#56D97D']
 
-# 8.2 수식 계산(예산 분배 방법)
+# 수식 계산(예산 분배 방법) - 100% SPLIT
 total_score = top_chart['score'].sum()
 top_chart['rate_val'] = (top_chart['score'] / total_score) * 100 
 top_chart['rate_val'] = top_chart['rate_val'].round(1)
 top_chart['rate_str'] = top_chart['rate_val'].astype(str) + "%"
 top_chart['rank_label'] = [f'TOP {i+1}' for i in range(len(top_chart))]
 
-# 8.3 차트 및 범례 생성
+# 차트 및 범례 생성
 base = alt.Chart(top_chart).encode(
     theta=alt.Theta("rate_val", stack=True) 
 )
@@ -417,7 +410,7 @@ pie = base.mark_arc(outerRadius=110, innerRadius=65).encode(
     tooltip=["rank_label", "rate_str"] 
 )
 
-# 8.4 도넛 위에 라벨
+# 도넛 위에 라벨
 text = base.mark_text(radius=155, fontSize=24).encode(
     text=alt.Text("rate_str"),
     order=alt.Order("rank_label", sort="ascending"),
@@ -432,19 +425,18 @@ st.altair_chart(chart, use_container_width=True)
 
 st.divider()
 
-
 # =============================================================================
-# 9. TOP_10
+# TOP_10 리스트 정리
 # =============================================================================
 st.subheader("TOP 10")
 tab1, tab2 = st.tabs(["광고 형태 추천","추가 설명"])
 
-# 9.1 TOP_15 표
+# TOP_15 표
 with tab1:
     stats_df = top_10
     st.dataframe(stats_df, width='stretch', height='stretch')
 
-# 9.2 추가 설명
+# 추가 설명
 with tab2:
     st.write("🔍 계산 과정")
     st.markdown("""

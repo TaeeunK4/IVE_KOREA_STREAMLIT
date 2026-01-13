@@ -5,17 +5,14 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
-from pathlib import Path
 import altair as alt
 import boto3
 from io import BytesIO
-from PIL import Image
-import base64
 
 # =============================================================================
-# 1. CSS 설정
+# CSS 설정
 # =============================================================================
+
 CARD_STYLE = """
 padding:16px;
 border-radius:12px;
@@ -97,10 +94,10 @@ div[data-testid="stVerticalBlockBorderWrapper"] > div {
 </style>
 """, unsafe_allow_html=True)
 
+## ============================================================================
+# 페이지 제목 설정
+## ============================================================================
 
-## ============================================================================
-# 2. 제목 설정
-## ============================================================================
 st.markdown(
     """
     <h2 style="margin-top: -30px; margin-bottom: 10px;">📊 광고 데이터 정보</h2>
@@ -110,14 +107,14 @@ st.markdown(
 
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
+# =============================================================================
+# 데이터 로드
+# =============================================================================
 
-# =============================================================================
-# 3. 데이터 로드
-# =============================================================================
-# 3.1 경로 저장 및 데이터 캐싱
 BUCKET_NAME = "ivekorea-airflow-practice-taeeunk"
 FILE_KEY = "ive_ml/Clustering/IVE_CLUSTER_MAPPING_MANUAL.parquet"
 
+# 매핑 데이터 (INDUSTRY/OS_TYPE/LIMIT_TYPE -> CLUSTER)
 @st.cache_data(max_entries=1)
 def load_mapping_data():
     try:
@@ -127,8 +124,6 @@ def load_mapping_data():
             aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
         )
         response = s3.get_object(Bucket=BUCKET_NAME, Key=FILE_KEY)
-        
-        # 전체를 읽지 않고 지정한 columns만 로드
         df = pd.read_parquet(
             BytesIO(response['Body'].read()), 
             engine='pyarrow'
@@ -141,17 +136,19 @@ def load_mapping_data():
 
 mapping_df = load_mapping_data()
 
-# 3.2 session_state 및 기본값 설정
+# =============================================================================
+# session_state 및 기본값 설정
+# =============================================================================
+
 industry = st.session_state.get('selected_industry', "금융/보험")
 os_input = st.session_state.get('selected_os', "WEB")
 limited = st.session_state.get('selected_limited', "UNLIMITED")
 highlight = st.session_state.get('selected_highlight', "이익")
 
-
 # =============================================================================
 # 4.데이터 필터링
 # =============================================================================
-# 4.1 문자열 정리(공백 제거 + 소문자 변환)
+
 mapping_df['INDUSTRY'] = mapping_df['INDUSTRY'].astype(str).str.strip()
 mapping_df['OS_TYPE'] = mapping_df['OS_TYPE'].astype(str).str.strip().str.lower()
 mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
@@ -159,16 +156,15 @@ mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
 industry_clean = industry.strip()
 os_input_clean = os_input.strip().lower()
 limited_clean = limited.strip()
-highlight_clean = highlight.strip()
 
-# 4.2 사용자 필터링
+# 사용자 선택사항 필터링
 result_row = mapping_df[
         (mapping_df['INDUSTRY'] == industry_clean) &
         (mapping_df['OS_TYPE'] == os_input_clean) &
         (mapping_df['LIMIT_TYPE'] == limited_clean)
     ]
 
-# 4.3 클러스터 추출 및 예외 처리
+# 클러스터 추출
 if not result_row.empty:
     cluster_num = int(result_row['GMM_CLUSTER'].values[0]) 
     st.session_state['cluster_num'] = cluster_num
@@ -183,17 +179,16 @@ else:
             </div>
         """, unsafe_allow_html=True)
     st.stop()
-    
 cluster_num = int(cluster_num)
 
-# 4.4 클러스터 파일 불러오기
+# 클러스터 파일 로드
 @st.cache_data(max_entries=1)
 def load_df(cluster_n):
     target_columns = [
-        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE', # limit_type 대응
+        'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE',
         '1000_W_EFFICIENCY', 'CVR', 'ABS', 
         'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
-        'GMM_CLUSTER' # 클러스터 번호를 뽑기 위해 반드시 필요함
+        'GMM_CLUSTER'
     ]
     file_key = f"ive_ml/Clustering/IVE_ANALYTICS_CLUSTER_{cluster_n}.parquet"
 
@@ -204,8 +199,6 @@ def load_df(cluster_n):
             aws_secret_access_key=st.secrets["AWS_SECRET_ACCESS_KEY"]
         )
         response = s3.get_object(Bucket=BUCKET_NAME, Key=file_key)
-        
-        # 전체를 읽지 않고 지정한 columns만 로드
         df = pd.read_parquet(
             BytesIO(response['Body'].read()), 
             columns=target_columns,
@@ -219,11 +212,11 @@ def load_df(cluster_n):
 
 filtered_df = load_df(cluster_num)
 
+# =============================================================================
+# KPI
+# =============================================================================
 
-# =============================================================================
-# 5. KPI
-# =============================================================================
-# 5.1 기초 프레임 구축
+# 기초 프레임 구축
 col1, col2, col3 = st.columns(3)
 
 if not filtered_df.empty:
@@ -239,7 +232,7 @@ else:
 
 col1, col2, col3 = st.columns(3, gap="small")
 
-# 5.2 지표 설정
+# KPI 설정
 with col1:
     st.markdown(f"""
     <div class="kpi-card">
@@ -271,7 +264,7 @@ st.divider()
 
 
 # =============================================================================
-# 6. 클러스터 분포 차트
+# 클러스터 분포 차트
 # =============================================================================
 with st.container():
     st.markdown('<div class="full-width-card">', unsafe_allow_html=True)
@@ -293,7 +286,7 @@ with st.container():
             df_os.columns = ['Label', 'Count']
             df_os['Category'] = 'OS'
 
-            # (3) 분기
+            # (3) 목표 제한 여부
             df_qt = target_df['LIMIT_TYPE'].value_counts().reset_index()
             df_qt.columns = ['Label', 'Count']
             df_qt['Category'] = '목표 제한 여부'
@@ -339,7 +332,7 @@ st.text("") # 여백
 
 
 # =============================================================================
-# 7. 기술 통계
+# 기술 통계
 # =============================================================================
 st.subheader("기술 통계")
 
