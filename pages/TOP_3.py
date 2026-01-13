@@ -253,7 +253,7 @@ model = load_model(cluster_num)
 # 6. 예측 함수 및 TOP 리스트
 # =============================================================================
 @st.cache_resource
-def prediction_TOP_3(df, _model):
+def prediction_TOP_3(df, _model, highlight_clean):
     unique_conditions = df[['SHAPE', 'MDA', 'START_TIME']].drop_duplicates()
     result_df = unique_conditions.copy()
     result_df['MDA'] = result_df['MDA'].astype(str)
@@ -300,7 +300,7 @@ def prediction_TOP_3(df, _model):
     
     return top1, top2, top3, top, top_10
 
-top1, top2, top3, top, top_10 = prediction_TOP_3(df, model)
+top1, top2, top3, top, top_10 = prediction_TOP_3(df, model, highlight_clean)
 
  
 # =============================================================================

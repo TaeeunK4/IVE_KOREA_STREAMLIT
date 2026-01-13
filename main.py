@@ -133,7 +133,7 @@ with st.sidebar:
 with st.sidebar:
     st.header("🧐 무엇을 중점적으로?")
 
-    st.selectbox(
+    highlight_clean = st.selectbox(
         "HIGHLIGHT", 
         ["이익", "비용", "안정성"], 
         key='selected_highlight'
