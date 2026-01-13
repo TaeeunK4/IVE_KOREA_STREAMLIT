@@ -142,7 +142,8 @@ mapping_df = load_mapping_data()
 industry = st.session_state.get('selected_industry', "금융/보험")
 os_input = st.session_state.get('selected_os', "WEB")
 limited = st.session_state.get('selected_limited', "UNLIMITED")
-highlight = st.session_state.get('selected_highlight', "이익")
+
+highlight = st.session_state['selected_highlight']
 
 mapping_df['INDUSTRY'] = mapping_df['INDUSTRY'].astype(str).str.strip()
 mapping_df['OS_TYPE'] = mapping_df['OS_TYPE'].astype(str).str.strip().str.lower()
@@ -245,7 +246,7 @@ model = load_model(cluster_num)
 # =============================================================================
 # # x : SHAPE, MDA, START_TIME -> CVR, 1000_W_EFFICIENCY, ABS 예측
 @st.cache_resource
-def prediction_TOP_3(df, _model, highlight_clean):
+def prediction_TOP_3(df, _model, highlight):
     unique_conditions = df[['SHAPE', 'MDA', 'START_TIME']].drop_duplicates()
     result_df = unique_conditions.copy()
     result_df['MDA'] = result_df['MDA'].astype(str)
@@ -277,11 +278,11 @@ def prediction_TOP_3(df, _model, highlight_clean):
     result_df['ABS_scaled'] = scaled_vals[:, 2]
 
     # 중점 사항에 따른 가중치 수정
-    if highlight_clean == "이익":
+    if highlight == "이익":
         result_df['score'] = result_df['CVR_scaled']*0.5 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.25
-    elif highlight_clean == "비용":
+    elif highlight == "비용":
         result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.5 + result_df['ABS_scaled']*0.25
-    elif highlight_clean == "안정성":
+    elif highlight == "안정성":
         result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.5
 
     top_10 = result_df.sort_values('score', ascending=False).head(10).copy()
@@ -294,7 +295,7 @@ def prediction_TOP_3(df, _model, highlight_clean):
     
     return top1, top2, top3, top, top_10
 
-top1, top2, top3, top, top_10 = prediction_TOP_3(df, model)
+top1, top2, top3, top, top_10 = prediction_TOP_3(df, model, highlight)
 
  
 # =============================================================================
