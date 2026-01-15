@@ -145,10 +145,6 @@ os_input = st.session_state.get('selected_os', "WEB")
 limited = st.session_state.get('selected_limited', "UNLIMITED")
 highlight = st.session_state.get('selected_highlight', "이익")
 
-# =============================================================================
-# 4.데이터 필터링
-# =============================================================================
-
 mapping_df['INDUSTRY'] = mapping_df['INDUSTRY'].astype(str).str.strip()
 mapping_df['OS_TYPE'] = mapping_df['OS_TYPE'].astype(str).str.strip().str.lower()
 mapping_df['LIMIT_TYPE'] = mapping_df['LIMIT_TYPE'].astype(str).str.strip()
@@ -181,12 +177,15 @@ else:
     st.stop()
 cluster_num = int(cluster_num)
 
-# 클러스터 파일 로드
+## ============================================================================
+# 데이터 로드
+## ============================================================================
+
 @st.cache_data(max_entries=1)
 def load_df(cluster_n):
     target_columns = [
         'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE',
-        '1000_W_EFFICIENCY', 'CVR', 'ABS', 
+        '1000_W_EFFICIENCY', 'CVR', 'ATS', 
         'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
         'GMM_CLUSTER'
     ]

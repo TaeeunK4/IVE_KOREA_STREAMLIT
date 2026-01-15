@@ -191,7 +191,7 @@ cluster_num = int(cluster_num)
 def load_df(cluster_n):
     target_columns = [
         'INDUSTRY', 'OS_TYPE', 'LIMIT_TYPE',
-        '1000_W_EFFICIENCY', 'CVR', 'ABS', 
+        '1000_W_EFFICIENCY', 'CVR', 'ATS', 
         'SHAPE', 'MDA', 'START_TIME', 'TIME_TURN',
         'GMM_CLUSTER'
     ]
@@ -244,7 +244,7 @@ model = load_model(cluster_num)
 # =============================================================================
 # 예측 함수 및 TOP 리스트
 # =============================================================================
-# # x : SHAPE, MDA, START_TIME -> CVR, 1000_W_EFFICIENCY, ABS 예측
+# # x : SHAPE, MDA, START_TIME -> CVR, 1000_W_EFFICIENCY, ATS 예측
 @st.cache_resource
 def prediction_TOP_3(df, _model, highlight):
     unique_conditions = df[['SHAPE', 'MDA', 'START_TIME']].drop_duplicates()
@@ -254,7 +254,7 @@ def prediction_TOP_3(df, _model, highlight):
     targets = {
             'CVR': 'Pred_CVR',
             '1000_W_EFFICIENCY': 'Pred_EFF',
-            'ABS': 'Pred_ABS'
+            'ATS': 'Pred_ATS'
         }
 
     for model_key_name, col_name in targets.items():
@@ -264,26 +264,20 @@ def prediction_TOP_3(df, _model, highlight):
             result_df[col_name] = target_model.predict(unique_conditions)
         else:
             result_df[col_name] = float(target_model)
-    
-    count_df = df.groupby(['SHAPE', 'MDA', 'START_TIME']).size().reset_index(name='Data_Count')
-    count_df['MDA'] = count_df['MDA'].astype(str)
-    result_df = pd.merge(result_df, count_df, on=['SHAPE', 'MDA', 'START_TIME'], how='left')
-    result_df['Data_Count'] = result_df['Data_Count'].fillna(0)
-    result_df = result_df[result_df['Data_Count'] >= 10].copy()
 
     scaler = MinMaxScaler(feature_range=(0, 100))
-    scaled_vals = scaler.fit_transform(result_df[['Pred_CVR', 'Pred_EFF', 'Pred_ABS']])
+    scaled_vals = scaler.fit_transform(result_df[['Pred_CVR', 'Pred_EFF', 'Pred_ATS']])
     result_df['CVR_scaled'] = scaled_vals[:, 0]
     result_df['EFF_scaled'] = scaled_vals[:, 1]
-    result_df['ABS_scaled'] = scaled_vals[:, 2]
+    result_df['ATS_scaled'] = scaled_vals[:, 2]
 
     # 중점 사항에 따른 가중치 수정
     if highlight == "이익":
-        result_df['score'] = result_df['CVR_scaled']*0.5 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.25
+        result_df['score'] = result_df['CVR_scaled']*0.5 + result_df['EFF_scaled']*0.25 + result_df['ATS_scaled']*0.25
     elif highlight == "비용":
-        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.5 + result_df['ABS_scaled']*0.25
+        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.5 + result_df['ATS_scaled']*0.25
     elif highlight == "안정성":
-        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.25 + result_df['ABS_scaled']*0.5
+        result_df['score'] = result_df['CVR_scaled']*0.25 + result_df['EFF_scaled']*0.25 + result_df['ATS_scaled']*0.5
 
     top_10 = result_df.sort_values('score', ascending=False).head(10).copy()
     top = result_df.sort_values('score', ascending=False).head(3).copy()
@@ -445,7 +439,7 @@ with tab2:
             <p style= 'color:gray; margin:2px 0;'>* 광고 효율 점수: CVR + (1-CPA)</p>
             <p style= 'color:gray; margin:2px 0;'>* CVR은 성능지표라 높을수록 효과적</p>
             <p style= 'color:gray; margin:2px 0;'>* 1000_W_EFFICIENCY는 천원당 전환 수라 높을수록 효율적</p>
-            <p style= 'color:gray; margin:2px 0;'>* ABS는 목표 전환 수 대비 실제 전환 수라 높을수록 효율적</p>
+            <p style= 'color:gray; margin:2px 0;'>* ATS는 목표 전환 수 대비 실제 전환 수라 높을수록 효율적</p>
             <p style= 'color:gray; margin:2px 0;'>→  <b>즉, 광고 효율 점수가 높을수록</b> 👍🏻</p>
     </div>          
     """, unsafe_allow_html=True)
